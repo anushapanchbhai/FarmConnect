@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - FarmConnect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</a>
+        <div class="nav-links" id="auth-nav"></div>
+    </nav>
+
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <span data-i18n="comm_system">Communication</span>
+                <div style="display:flex;gap:.5rem;">
+                    <button class="call-btn" style="width:35px;height:35px;font-size:.9rem;background:var(--earth-brown);" onclick="simulateCall('9876543210')" title="Voice Call">📞</button>
+                </div>
+            </div>
+            <div class="chat-messages" id="chatArea"></div>
+            <div class="chat-input-area">
+                <button class="chat-btn" style="background:var(--earth-brown);" title="Voice Message (Mock)">🎤</button>
+                <input type="text" id="msgInput" class="chat-input" data-i18n="type_message">
+                <button class="chat-btn" onclick="sendMsg()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = checkAuth();
+            if (!user) return;
+
+            function renderChats() {
+                const chats = DB.getChats();
+                const el = document.getElementById('chatArea');
+                el.innerHTML = chats.map(c => `<div class="chat-bubble ${c.isLocal ? 'local' : 'remote'}">${c.text}</div>`).join('');
+                el.scrollTop = el.scrollHeight;
+            }
+
+            renderChats();
+
+            window.sendMsg = function () {
+                const input = document.getElementById('msgInput');
+                if (!input.value.trim()) return;
+                DB.addMessage(input.value.trim(), true);
+                input.value = '';
+                renderChats();
+                setTimeout(() => {
+                    const replies = [
+                        DB.getLang() === 'hi' ? "ठीक है, मैं जाँच कर बताता हूँ।" :
+                        DB.getLang() === 'ka' ? "ಸರಿ, ನಾನು ಪರಿಶೀಲಿಸಿ ಹೇಳುತ್ತೇನೆ." :
+                        DB.getLang() === 'ta' ? "சரி, நான் சரிபார்த்து சொல்கிறேன்." :
+                        DB.getLang() === 'ml' ? "ശരി, ഞാൻ പരിശോധിച്ച് പറയാം." :
+                        "Okay, noted! Let me check and get back to you."
+                    ];
+                    DB.addMessage(replies[0], false);
+                    renderChats();
+                }, 1500);
+            };
+
+            document.getElementById('msgInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMsg();
+            });
+        });
+    </script>
+</body>
+</html>

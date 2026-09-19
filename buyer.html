@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buyer Market - FarmConnect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</a>
+        <div class="nav-links" id="auth-nav"></div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <h2 data-i18n="market_title">Fresh Produce Market</h2>
+            <span class="badge badge-success" data-i18n="no_middlemen">🤝 No Middlemen – Fair Prices!</span>
+        </div>
+
+        <!-- Search Bar -->
+        <input type="text" class="search-bar" id="searchInput" data-i18n="search_ph">
+
+        <div class="market-layout" style="display:flex; gap:2rem;">
+            <!-- Cart Panel (Left) -->
+            <div style="width:280px; flex-shrink:0;">
+                <div class="cart-panel">
+                    <h3 data-i18n="cart_title">🛒 Your Cart</h3>
+                    <div class="cart-actions mb-2">
+                        <button class="btn btn-outline btn-sm" onclick="undoAction()" data-i18n="undo">↩ Undo</button>
+                        <button class="btn btn-outline btn-sm" onclick="redoAction()" data-i18n="redo">↪ Redo</button>
+                    </div>
+                    <div id="cartItems"></div>
+                    <div id="cartTotal" class="mt-2" style="font-weight:bold;"></div>
+                    <button class="btn btn-primary btn-block mt-2" onclick="placeCartOrder()" data-i18n="place_order">📦 Place Order</button>
+                </div>
+            </div>
+
+            <!-- Products Grid (Right) -->
+            <div style="flex-grow:1;">
+                <div id="marketGrid" class="grid"></div>
+            </div>
+        </div>
+        </div>
+
+        <hr style="margin:3rem 0; border:0; border-top:1px solid #eee;">
+
+        <!-- Order History Section -->
+        <div class="dashboard-section mt-3">
+            <h2 class="mb-2" style="display:flex; align-items:center; gap:0.5rem;">
+                📦 <span data-i18n="your_orders">Your Orders</span>
+            </h2>
+            <div id="orderHistoryList"></div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width:400px; padding:2rem; border-radius:15px; text-align:center; background:white;">
+            <button class="close-btn" style="position:absolute; top:10px; right:15px; border:none; background:none; font-size:1.5rem; cursor:pointer;" onclick="document.getElementById('paymentModal').style.display='none'">×</button>
+            <h3 data-i18n="select_payment">Select Payment Method</h3>
+            <div style="display:grid; gap:1rem; margin-top:1.5rem;">
+                <button class="btn btn-outline" onclick="simulatePayment('UPI')" style="padding:1rem; border:1px solid #ddd; border-radius:8px; cursor:pointer;">📱 <span data-i18n="upi">UPI</span></button>
+                <button class="btn btn-outline" onclick="simulatePayment('Card')" style="padding:1rem; border:1px solid #ddd; border-radius:8px; cursor:pointer;">💳 <span data-i18n="card">Card</span></button>
+                <button class="btn btn-outline" onclick="simulatePayment('Net Banking')" style="padding:1rem; border:1px solid #ddd; border-radius:8px; cursor:pointer;">🏦 <span data-i18n="netbanking">Net Banking</span></button>
+            </div>
+            <div id="paymentStatus" style="margin-top:1.5rem; font-weight:bold; color:var(--primary-green);"></div>
+        </div>
+    </div>
+
+    <!-- Billing Modal -->
+    <div id="billModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:900; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+        <div class="modal-content" style="max-width:500px; padding:2rem; border-radius:15px; background:white; position:relative;">
+            <button class="close-btn" style="position:absolute; top:10px; right:15px; border:none; background:none; font-size:1.5rem; cursor:pointer;" onclick="document.getElementById('billModal').style.display='none'">×</button>
+            <div id="billContent"></div>
+            <div id="billActions" style="display:flex; gap:1rem; margin-top:1.5rem;">
+                <button class="btn btn-outline btn-block" onclick="window.print()">🖨️ Print</button>
+                <!-- Proceed button will be injected dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div class="modal-overlay" id="reviewModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeReviewModal()">&times;</button>
+            <h3 id="reviewModalTitle" data-i18n="reviews">Reviews</h3>
+            <div id="reviewList" class="mb-2"></div>
+            <hr>
+            <h4 class="mt-2 mb-1" data-i18n="write_review">Write a Review</h4>
+            <div class="star-rating mb-1" id="starPicker">
+                <span onclick="setRating(1)">★</span><span onclick="setRating(2)">★</span>
+                <span onclick="setRating(3)">★</span><span onclick="setRating(4)">★</span>
+                <span onclick="setRating(5)">★</span>
+            </div>
+            <textarea id="reviewText" rows="3" style="width:100%;padding:.5rem;border:1px solid #ccc;border-radius:8px;" data-i18n="review_ph"></textarea>
+            <button class="btn btn-primary btn-block mt-1" onclick="submitReview()" data-i18n="submit_review">Submit Review</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let cart = []; // {cropId, name, price, qty, farmerPhone, farmerLoc, farmerName, farmerLat, farmerLng}
+        let undoStack = [];
+        let redoStack = [];
+        let currentReviewCropId = null;
+        let selectedRating = 5;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = checkAuth('Buyer');
+                function renderMarket(filter = '') {
+                const crops = DB.getCrops();
+                const el = document.getElementById('marketGrid');
+                const lang = DB.getLang();
+                
+                // Comprehensive Major Categories for the UI
+                const majorCats = [
+                    { key: 'wheat', name: 'Wheat', hi: 'गेहूँ', ka: 'ಗೋಧಿ', ta: 'கோதுமை', ml: 'ഗോതമ്പ്', img: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&q=80' },
+                    { key: 'rice', name: 'Rice', hi: 'चावल', ka: 'ಅಕ್ಕಿ', ta: 'அரிசி', ml: 'അരി', img: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&q=80' },
+                    { key: 'cotton', name: 'Cotton', hi: 'कपास', ka: 'ಹತ್ತಿ', ta: 'பருத்தி', ml: 'பருத்தி', img: 'https://images.unsplash.com/photo-1605001011153-a5519fb4fec5?w=500&q=80' },
+                    { key: 'sugarcane', name: 'Sugarcane', hi: 'गन्ना', ka: 'ಕಬ್ಬು', ta: 'கரும்பு', ml: 'കരിമ്പ്', img: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500&q=80' },
+                    { key: 'coffee', name: 'Coffee Beans', hi: 'कॉफी बीन्स', ka: 'ಕಾಫಿ ಬೀಜ', ta: 'காபி பீன்ஸ்', ml: 'കാപ്പിക്കുരു', img: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=500&q=80' },
+                    { key: 'tea', name: 'Tea Leaves', hi: 'चाय पत्ती', ka: 'ಚಹಾ ಎಲೆ', ta: 'தேயிலை', ml: 'ചായില', img: 'https://images.unsplash.com/photo-1599304675510-7e3ec219803b?w=500&q=80' },
+                    { key: 'jute', name: 'Jute', hi: 'जूट', ka: 'ಸೆಣಬು', ta: 'சணல்', ml: 'ചണം', img: 'https://images.unsplash.com/photo-1535585093740-9a25039f9b5c?w=500&q=80' },
+                    { key: 'pepper', name: 'Spices', hi: 'मसाले', ka: 'ಮೆಣಸು', ta: 'மிளகு', ml: 'കുരുമുളക്', img: 'https://images.unsplash.com/photo-1596647413645-a92288002df3?w=500&q=80' },
+                    { key: 'groundnut', name: 'Groundnut', hi: 'मूंगफली', ka: 'ಕಡಲೆಕಾಯಿ', ta: 'நிலக்கடலை', ml: 'നിലക്കടല', img: 'https://images.unsplash.com/photo-1563114771-477b587a8f15?w=500&q=80' },
+                    { key: 'dal', name: 'Pulses', hi: 'दाल', ka: 'ಬೇಳೆ', ta: 'பருப்பு', ml: 'പരിപ്പ്', img: 'https://images.unsplash.com/photo-1621255792942-07ebcb3cc08a?w=500&q=80' },
+                    { key: 'mango', name: 'Mangoes', hi: 'आम', ka: 'ಮಾವು', ta: 'மாம்பழம்', ml: 'മാങ്ങ', img: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=500&q=80' },
+                    { key: 'apple', name: 'Apples', hi: 'सेब', ka: 'ಸೇಬು', ta: 'ஆப்பிள்', ml: 'ആപ്പിൾ', img: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6faa6?w=500&q=80' }
+                ];
+
+                let html = '';
+
+                majorCats.forEach(cat => {
+                    const catName = cat[lang] || cat.name;
+                    const catCrops = crops.filter(c => 
+                        c.category === 'major' && 
+                        c.name.toLowerCase().includes(cat.key) &&
+                        c.name.toLowerCase().includes(filter.toLowerCase())
+                    );
+
+                    html += `<div class="category-section" style="margin-bottom:2rem;">
+                        <h2 style="border-left:4px solid var(--primary-green); padding-left:.8rem; margin-bottom:1rem; font-size:1.4rem;">${catName}</h2>
+                        <div class="grid">`;
+
+                    if (catCrops.length > 0) {
+                        html += catCrops.map(c => {
+                            const avgR = c.reviews && c.reviews.length > 0
+                                ? (c.reviews.reduce((a, r) => a + r.stars, 0) / c.reviews.length).toFixed(1) : null;
+                            const stars = avgR ? '⭐'.repeat(Math.round(avgR)) : '';
+                            const inCart = cart.find(x => x.cropId === c.id);
+
+                            return `<div class="card">
+                                <div class="card-body">
+                                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                        <h3 class="mb-1">${c.name}</h3>
+                                        ${c.isSimulated ? `<span class="simulated-badge" title="Demo data for nearby farmers">Nearby</span>` : ''}
+                                    </div>
+                                    ${c.variety ? `<p style="font-size:0.8rem;color:#666;margin:2px 0;">🌾 ${c.variety}</p>` : ''}
+                                    ${c.condition ? `<p style="font-size:0.8rem;color:#666;margin:2px 0;">📋 ${c.condition}</p>` : ''}
+                                    <p style="color:#666;font-size:.85rem; margin-bottom:.5rem;">
+                                        🧑‍🌾 ${c.farmer} 
+                                        ${c.isSimulated ? `(Verified Nearby)` : `<button class="call-btn" style="width:22px;height:22px;font-size:.6rem;display:inline-flex;margin-left:4px;" onclick="simulateCall('${c.phone}')">📞</button>`}
+                                    </p>
+                                    ${avgR ? `<p class="star-display">${stars} ${avgR}/5 (${c.reviews.length})</p>` : `<p style="font-size:.8rem;color:#999;margin-bottom:.5rem;">${DB.t('no_reviews')}</p>`}
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+                                        <span style="font-size:1.2rem;font-weight:bold;color:var(--dark-green);">₹${c.price}<small style="font-size:.75rem;color:#555;">${DB.t('per_kg')}</small></span>
+                                        <span style="font-size:.8rem;color:#666;">${DB.t('avail')}: ${c.quantity} ${c.unit||'kg'}</span>
+                                    </div>
+                                    <div style="display:flex;gap:.4rem;margin-top:.8rem;">
+                                        ${inCart
+                                            ? `<button class="btn btn-danger btn-sm" style="flex:1;" onclick="removeFromCart(${c.id})">${DB.t('remove_from_cart')}</button>`
+                                            : `<button class="btn btn-primary btn-sm" style="flex:1;" onclick="addToCart(${c.id})">${DB.t('add_to_cart')}</button>`
+                                        }
+                                        <button class="btn btn-outline btn-sm" style="flex:1;" onclick="buyNow(${c.id})">${DB.t('buy_now') || 'Buy Now'}</button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        // Sample/Mock Data for testing if NO crops exist in category
+                        html += `
+                        <div class="card" style="opacity:0.8; border: 1px dashed #ccc;">
+                            <img src="${cat.img}" class="card-img" style="filter:grayscale(0.5); height:140px;" alt="${catName}">
+                            <div class="card-body">
+                                <h3 class="mb-1">${catName} (Demo)</h3>
+                                <p style="font-size:0.8rem;color:#666;margin:2px 0;">🌾 Export Grade Variety Available</p>
+                                <p style="color:#666;font-size:.85rem;">📍 Simulated Nearby Farmers</p>
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;">
+                                    <span style="font-size:1.1rem;font-weight:bold;color:#999;">₹--<small style="font-size:.75rem;">/kg</small></span>
+                                    <span style="font-size:.8rem;color:#999;">Restocking...</span>
+                                </div>
+                                <p style="font-size:.75rem; color:#888; margin-top:0.5rem; text-align:center;">${DB.t('waiting_farmers')}</p>
+                            </div>
+                        </div>`;
+                    }
+
+                    html += `</div></div>`;
+                });
+
+                el.innerHTML = html;
+                renderOrderHistory();
+            }
+
+            function renderOrderHistory() {
+                const user = DB.getUserSession();
+                const orders = DB.getOrders().filter(o => o.buyerPhone === user.phone);
+                const el = document.getElementById('orderHistoryList');
+                if (!el) return;
+                
+                if (orders.length === 0) {
+                    el.innerHTML = `<p style="color:#999; text-align:center;">${DB.t('no_active_orders')}</p>`;
+                    return;
+                }
+
+                el.innerHTML = orders.map(o => `
+                    <div style="background:white; border:1px solid #eee; border-radius:12px; margin-bottom:1rem; padding:1.2rem; display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div style="flex:1;">
+                            <div style="display:flex; gap:0.6rem; align-items:center; margin-bottom:0.5rem;">
+                                <strong style="font-size:1.1rem;">#${o.id}</strong>
+                                <span class="badge ${o.paymentStatus === 'Paid' ? 'badge-success' : 'badge-warning'}">${DB.t(o.paymentStatus.toLowerCase())}</span>
+                                <span class="badge badge-primary">${DB.t('status_' + o.status.toLowerCase())}</span>
+                            </div>
+                            <p style="margin:0; font-size:1rem;">${o.cropName} (${o.qty})</p>
+                            <p style="margin:0.2rem 0; color:#666; font-size:0.85rem;">🧑‍🌾 ${o.farmerName} • 📍 ${o.farmerLoc}</p>
+                            ${o.transporter ? `
+                                <div style="margin-top:0.8rem; padding:0.8rem; background:#f0f7f0; border-radius:8px; border-left:4px solid var(--primary-green);">
+                                    <p style="margin:0; font-weight:bold; color:var(--dark-green); font-size:0.85rem;">🚚 ${DB.t('transporter_info')}</p>
+                                    <p style="margin:2px 0; font-size:0.85rem;">${o.transporter.name} (${o.transporter.vehicle})</p>
+                                    <p style="margin:0; font-size:0.85rem; color:#555;">⏱️ ${DB.t('eta')}: ${o.eta}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div style="text-align:right; display:flex; flex-direction:column; gap:0.5rem;">
+                            <p style="font-size:1.3rem; font-weight:bold; color:var(--dark-green); margin:0;">₹${o.totalPrice + (o.transportCharges || 0)}</p>
+                            <button class="btn btn-outline btn-sm" onclick="viewBill(${o.id})">${DB.t('view_bill')}</button>
+                            ${o.paymentStatus === 'Pending' ? `<button class="btn btn-success btn-sm" onclick="openPaymentModal(${o.id})">${DB.t('pay_now')}</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function renderCart() {
+                const el = document.getElementById('cartItems');
+                const totalEl = document.getElementById('cartTotal');
+                if (cart.length === 0) {
+                    el.innerHTML = `<p style="color:#999;" data-i18n="cart_empty">${DB.t('cart_empty')}</p>`;
+                    totalEl.textContent = '';
+                    return;
+                }
+                el.innerHTML = cart.map(item => `
+                    <div class="cart-item">
+                        <div style="flex:1;">
+                            <strong>${item.name}</strong><br>
+                            <small>₹${item.price}${DB.t('per_kg')}</small>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:.3rem;">
+                            <input type="number" min="1" max="9999" value="${item.qty}" style="width:55px;padding:4px;border:1px solid #ccc;border-radius:4px;text-align:center;"
+                                onchange="updateCartQty(${item.cropId}, this.value)">
+                            <span style="font-size:.75rem;">kg</span>
+                        </div>
+                    </div>
+                `).join('');
+                const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+                totalEl.textContent = `${DB.t('total')}: ₹${total}`;
+            }
+
+            // Expose functions
+            window.addToCart = function (id) {
+                saveUndo();
+                const crop = DB.getCrops().find(c => c.id === id);
+                if (!crop || cart.find(x => x.cropId === id)) return;
+                cart.push({ cropId: id, name: crop.name, price: crop.price, qty: 10, farmerPhone: crop.phone, farmerLoc: crop.loc, farmerName: crop.farmer, farmerLat: crop.lat, farmerLng: crop.lng });
+                renderCart(); renderMarket(document.getElementById('searchInput').value);
+            };
+            window.removeFromCart = function (id) {
+                saveUndo();
+                cart = cart.filter(x => x.cropId !== id);
+                renderCart(); renderMarket(document.getElementById('searchInput').value);
+            };
+            window.updateCartQty = function (id, val) {
+                const item = cart.find(x => x.cropId === id);
+                if (item) item.qty = Math.max(1, parseInt(val) || 1);
+                renderCart();
+            };
+
+            // Undo/Redo
+            function saveUndo() { undoStack.push(JSON.stringify(cart)); redoStack = []; }
+            window.undoAction = function () {
+                if (undoStack.length === 0) return;
+                redoStack.push(JSON.stringify(cart));
+                cart = JSON.parse(undoStack.pop());
+                renderCart(); renderMarket(document.getElementById('searchInput').value);
+            };
+            window.redoAction = function () {
+                if (redoStack.length === 0) return;
+                undoStack.push(JSON.stringify(cart));
+                cart = JSON.parse(redoStack.pop());
+                renderCart(); renderMarket(document.getElementById('searchInput').value);
+            };
+
+            // Buy Now / Cart Flow
+            window.renderPreOrderBill = function (items) {
+                if (!items || items.length === 0) return;
+                
+                const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+                const transport = 50; 
+                const tax = Math.ceil(subtotal * 0.02);
+                const total = subtotal + transport + tax;
+
+                let itemsHtml = items.map(i => `
+                    <tr style="border-bottom:1px solid #eee;">
+                        <td style="padding:.5rem;">${i.name}</td>
+                        <td style="padding:.5rem; text-align:right;">${i.qty}</td>
+                        <td style="padding:.5rem; text-align:right;">₹${i.price * i.qty}</td>
+                    </tr>`).join('');
+
+                document.getElementById('billContent').innerHTML = `
+                    <div style="text-align:center; margin-bottom:1rem; border-bottom:2px solid var(--primary-green); padding-bottom:.5rem;">
+                        <h2 style="color:var(--dark-green);">${DB.t('invoice')} (Draft)</h2>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; margin-bottom:1rem;">
+                        <tr style="background:#f9f9f9;">
+                            <th style="padding:.5rem; text-align:left;">Item</th>
+                            <th style="padding:.5rem; text-align:right;">Qty</th>
+                            <th style="padding:.5rem; text-align:right;">Total</th>
+                        </tr>
+                        ${itemsHtml}
+                    </table>
+                    <div style="background:#f4f9f4; padding:1rem; border-radius:8px; margin-left:auto; max-width:200px;">
+                        <div style="display:flex; justify-content:space-between; font-size:.9rem;">
+                            <span>Subtotal:</span> <span>₹${subtotal}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-size:.9rem;">
+                            <span>Transport:</span> <span>₹${transport}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:.5rem; border-top:1px dashed #ccc; padding-top:.5rem;">
+                            <span>Total:</span> <span>₹${total}</span>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('billActions').innerHTML = `
+                    <button class="btn btn-outline btn-block" onclick="window.print()">🖨️ Download Bill</button>
+                    <button class="btn btn-primary btn-block" onclick="openPaymentAndFinalize(${JSON.stringify(items).replace(/"/g, '&quot;')})">${DB.t('pay_now')}</button>
+                `;
+                document.getElementById('billModal').style.display = 'flex';
+            };
+
+            window.placeCartOrder = function () {
+                renderPreOrderBill(cart);
+            };
+
+            window.buyNow = function(id) {
+                const c = DB.getCrops().find(x => x.id == id);
+                if (c) {
+                    renderPreOrderBill([{
+                        cropId: c.id, name: c.name, price: c.price, qty: 1,
+                        farmerName: c.farmer, farmerPhone: c.phone
+                    }]);
+                }
+            };
+
+            window.openPaymentAndFinalize = function(items) {
+                window.currentCheckoutItems = items;
+                document.getElementById('billModal').style.display = 'none';
+                document.getElementById('paymentStatus').textContent = '';
+                document.getElementById('paymentModal').style.display = 'flex';
+            };
+
+            window.simulatePayment = function(method) {
+                const statusEl = document.getElementById('paymentStatus');
+                statusEl.style.display = 'block';
+                statusEl.innerHTML = `<span style="color:#666;">Securing ${method} Transaction...</span>`;
+                
+                setTimeout(() => {
+                    const items = window.currentCheckoutItems;
+                    items.forEach(item => {
+                        DB.addOrder({
+                            cropId: item.cropId, cropName: item.name,
+                            farmerName: item.farmerName, farmerPhone: item.farmerPhone,
+                            buyerName: user.name, buyerPhone: user.phone,
+                            qty: item.qty + " kg", totalPrice: item.price * item.qty,
+                            paymentStatus: 'Paid', paymentMethod: method,
+                            timestamp: Date.now()
+                        });
+                    });
+
+                    statusEl.innerHTML = `✅ ${DB.t('payment_success')}`;
+                    // Clear cart only if we checked out the cart
+                    if (JSON.stringify(items) === JSON.stringify(cart)) {
+                        cart = []; undoStack = []; redoStack = [];
+                    }
+                    
+                    setTimeout(() => {
+                        document.getElementById('paymentModal').style.display = 'none';
+                        renderMarket('');
+                        renderCart();
+                    }, 1500);
+                }, 2000);
+            };
+
+            // Reviews
+            window.openReviewModal = function (cropId) {
+                currentReviewCropId = cropId;
+                const crop = DB.getCrops().find(c => c.id === cropId);
+                document.getElementById('reviewModalTitle').textContent = crop.name + ' – ' + DB.t('reviews');
+                const listEl = document.getElementById('reviewList');
+                if (!crop.reviews || crop.reviews.length === 0) {
+                    listEl.innerHTML = `<p style="color:#999;">${DB.t('no_reviews')}</p>`;
+                } else {
+                    listEl.innerHTML = crop.reviews.map(r => `
+                        <div class="review-item">
+                            <span class="star-display">${'⭐'.repeat(r.stars)}</span>
+                            <p style="margin-top:.3rem;">${r.text}</p>
+                            <small style="color:#888;">${DB.t('buyer_label')}: +91 ${r.buyer}</small>
+                        </div>`).join('');
+                }
+                selectedRating = 5; updateStarUI();
+                document.getElementById('reviewModal').style.display = 'flex';
+            };
+            window.closeReviewModal = function () {
+                document.getElementById('reviewModal').style.display = 'none';
+            };
+            window.setRating = function (n) { selectedRating = n; updateStarUI(); };
+            function updateStarUI() {
+                document.querySelectorAll('#starPicker span').forEach((s, i) => {
+                    s.classList.toggle('active', i < selectedRating);
+                });
+            }
+            window.submitReview = function () {
+                const text = document.getElementById('reviewText').value.trim();
+                if (!text) return;
+                DB.addReview(currentReviewCropId, { buyer: user.phone, stars: selectedRating, text });
+                document.getElementById('reviewText').value = '';
+                showToast(DB.t('review_submitted'));
+                openReviewModal(currentReviewCropId); // Refresh
+                renderMarket(document.getElementById('searchInput').value);
+            };
+
+            // Search
+            document.getElementById('searchInput').addEventListener('input', function () {
+                renderMarket(this.value);
+            });
+
+            // Toast
+            function showToast(msg) {
+                const t = document.createElement('div');
+                t.className = 'toast';
+                t.textContent = msg;
+                document.body.appendChild(t);
+                setTimeout(() => t.remove(), 3000);
+            }
+
+            renderMarket('');
+            window.viewBill = function(orderId) {
+                const o = DB.getOrders().find(x => x.id == orderId);
+                if (!o) return;
+                const subtotal = o.totalPrice;
+                const transport = o.transportCharges || 0;
+                const tax = Math.ceil(subtotal * 0.02);
+                const finalTotal = subtotal + transport + tax;
+
+                document.getElementById('billContent').innerHTML = `
+                    <div style="text-align:center; border-bottom:2px solid var(--primary-green); padding-bottom:1rem; margin-bottom:1rem;">
+                        <h2 style="color:var(--dark-green); margin:0;">🌱 FarmConnect ${DB.t('invoice')}</h2>
+                        <small style="color:#666;">#INV-${o.id}</small>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem;">
+                        <div>
+                            <strong style="font-size:0.8rem; color:#888; text-transform:uppercase;">${DB.t('farmer_label')}</strong><br>
+                            ${o.farmerName}<br>
+                            +91 ${o.farmerPhone}
+                        </div>
+                        <div style="text-align:right;">
+                            <strong style="font-size:0.8rem; color:#888; text-transform:uppercase;">${DB.t('buyer_label')}</strong><br>
+                            ${o.buyerName}<br>
+                            +91 ${o.buyerPhone}
+                        </div>
+                    </div>
+                    <table style="width:100%; border-collapse:collapse; padding:10px;">
+                        <tr style="border-bottom:1px solid #eee; background:#f9f9f9;">
+                            <th style="padding:.6rem; text-align:left;">Item</th>
+                            <th style="padding:.6rem; text-align:right;">Qty</th>
+                            <th style="padding:.6rem; text-align:right;">Price</th>
+                        </tr>
+                        <tr>
+                            <td style="padding:.6rem;">${o.cropName}</td>
+                            <td style="padding:.6rem; text-align:right;">${o.qty}</td>
+                            <td style="padding:.6rem; text-align:right;">₹${subtotal}</td>
+                        </tr>
+                    </table>
+                    <div style="margin-left:auto; width:100%; max-width:250px; background:#f4f9f4; padding:1rem; border-radius:8px; margin-top:1rem;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:.3rem;">
+                            <span>${DB.t('charges_subtotal')}:</span>
+                            <span>₹${subtotal}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:.3rem;">
+                            <span>${DB.t('transport_charges')}:</span>
+                            <span>₹${transport}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; margin-top:.5rem; border-top:1px dashed #ccc; padding-top:.5rem;">
+                            <span>${DB.t('total')}:</span>
+                            <span>₹${finalTotal}</span>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('billModal').style.display = 'flex';
+            };
+
+            let currentPayingOrderId = null;
+            window.openPaymentModal = function(orderId) {
+                currentPayingOrderId = orderId;
+                document.getElementById('paymentStatus').textContent = '';
+                document.getElementById('paymentModal').style.display = 'flex';
+            };
+
+            window.simulatePayment = function(method) {
+                const statusEl = document.getElementById('paymentStatus');
+                statusEl.style.display = 'block';
+                statusEl.innerHTML = `<span style="color:#666;">${DB.t('processing')}</span>`;
+                
+                setTimeout(() => {
+                    DB.updatePaymentStatus(currentPayingOrderId, 'Paid');
+                    statusEl.innerHTML = `✅ ${DB.t('payment_success')}`;
+                    setTimeout(() => {
+                        document.getElementById('paymentModal').style.display = 'none';
+                        renderMarket(''); // Refresh order history
+                    }, 1500);
+                }, 2000);
+            };
+
+            renderCart();
+        });
+    </script>
+</body>
+</html>

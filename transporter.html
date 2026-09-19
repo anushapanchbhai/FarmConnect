@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transporter Dashboard - FarmConnect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</a>
+        <div class="nav-links" id="auth-nav"></div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <h2 data-i18n="transporter_dashboard">Transporter Dashboard</h2>
+        </div>
+
+        <div style="max-width:800px; margin:0 auto;">
+            <h3 class="mb-2" data-i18n="live_notifications">🔔 Live Delivery Requests</h3>
+            <div id="notificationsArea"></div>
+
+            <!-- Active Delivery Box -->
+            <div class="card mt-3" style="padding:1.5rem;" id="activeDeliveryBox">
+                <h3 class="text-center mb-2" data-i18n="current_job">Current Job</h3>
+
+                <div style="display:flex; justify-content:space-between; background:var(--light-green); padding:1rem; border-radius:var(--radius-sm); margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem;">
+                    <div>
+                        <h4 style="color:var(--dark-green);" data-i18n="pickup_farmer">Pickup (Farmer)</h4>
+                        <p id="tFarmerLoc"></p>
+                        <p id="tFarmerPhone"></p>
+                        <button class="btn btn-secondary btn-sm mt-1" id="btnCallFarmer" data-i18n="call_farmer">📞 Call Farmer</button>
+                        <button class="btn btn-outline btn-sm mt-1" id="btnMapFarmer" data-i18n="view_map">🗺️ View on Map</button>
+                    </div>
+                    <div style="text-align:right;">
+                        <h4 style="color:var(--earth-brown);" data-i18n="dropoff_buyer">Drop-off (Buyer)</h4>
+                        <p id="tBuyerPhone"></p>
+                        <button class="btn btn-secondary btn-sm mt-1" id="btnCallBuyer" data-i18n="call_buyer">📞 Call Buyer</button>
+                    </div>
+                </div>
+
+                <div class="timeline">
+                    <div class="timeline-step active" id="step1">
+                        <div class="timeline-point"></div>
+                        <p data-i18n="status_pending">Pending</p>
+                    </div>
+                    <div class="timeline-step" id="step2">
+                        <div class="timeline-point"></div>
+                        <p data-i18n="status_assigned">Assigned</p>
+                    </div>
+                    <div class="timeline-step" id="step3">
+                        <div class="timeline-point"></div>
+                        <p data-i18n="status_transit">In Transit</p>
+                    </div>
+                    <div class="timeline-step" id="step4">
+                        <div class="timeline-point"></div>
+                        <p data-i18n="status_delivered">Delivered</p>
+                    </div>
+                </div>
+
+                <div class="text-center mt-2">
+                    <button class="btn btn-primary" onclick="advanceStatus()" data-i18n="update_status">Update Delivery Status</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = checkAuth('Transporter');
+            if (!user) return;
+
+            let activeOrder = null;
+
+            function render() {
+                const orders = DB.getOrders();
+                const pending = orders.filter(o => o.status === 'Pending');
+                const active = orders.filter(o => o.status === 'Assigned' || o.status === 'In Transit');
+                const notifEl = document.getElementById('notificationsArea');
+                const delivBox = document.getElementById('activeDeliveryBox');
+
+                // Notifications
+                if (pending.length === 0 && active.length === 0) {
+                    notifEl.innerHTML = `<p style="color:#999;" data-i18n="no_jobs">${DB.t('no_jobs')}</p>`;
+                    delivBox.style.display = 'none';
+                    DB.translateUI();
+                    return;
+                }
+
+                notifEl.innerHTML = pending.map(o => `
+                    <div class="notification-card">
+                        <div>
+                            <strong>${DB.t('new_request')}</strong><br>
+                            ${o.qty} – ${o.cropName}<br>
+                            📍 ${DB.t('from')}: ${o.farmerLoc} | ${DB.t('phone')}: +91 ${o.farmerPhone}
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="acceptJob(${o.id})" data-i18n="accept_job">${DB.t('accept_job')}</button>
+                    </div>`).join('');
+
+                // Active delivery
+                if (active.length > 0) {
+                    activeOrder = active[active.length - 1];
+                    delivBox.style.display = 'block';
+                    document.getElementById('tFarmerLoc').textContent = '📍 ' + (activeOrder.farmerLoc || 'N/A');
+                    document.getElementById('tFarmerPhone').textContent = DB.t('phone') + ': +91 ' + activeOrder.farmerPhone;
+                    document.getElementById('tBuyerPhone').textContent = DB.t('phone') + ': +91 ' + activeOrder.buyerPhone;
+                    document.getElementById('btnCallFarmer').onclick = () => simulateCall(activeOrder.farmerPhone);
+                    document.getElementById('btnCallBuyer').onclick = () => simulateCall(activeOrder.buyerPhone);
+                    document.getElementById('btnMapFarmer').onclick = () => showMapPopup(activeOrder.farmerLat || 12.97, activeOrder.farmerLng || 77.59, activeOrder.farmerLoc);
+                    updateTimeline(activeOrder.status);
+                } else {
+                    delivBox.style.display = 'none';
+                }
+                DB.translateUI();
+            }
+
+            function updateTimeline(status) {
+                for (let i = 1; i <= 4; i++) document.getElementById('step' + i).className = 'timeline-step';
+                let limit = 1;
+                if (status === 'Assigned') limit = 2;
+                if (status === 'In Transit') limit = 3;
+                if (status === 'Delivered') limit = 4;
+                for (let i = 1; i <= limit; i++) document.getElementById('step' + i).classList.add('active');
+            }
+
+            window.acceptJob = function (id) {
+                DB.updateOrderStatus(id, 'Assigned');
+                render();
+            };
+
+            window.advanceStatus = function () {
+                if (!activeOrder) return;
+                const next = activeOrder.status === 'Assigned' ? 'In Transit' : activeOrder.status === 'In Transit' ? 'Delivered' : null;
+                if (!next) { alert(DB.t('already_delivered')); return; }
+                DB.updateOrderStatus(activeOrder.id, next);
+                render();
+            };
+
+            render();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - FarmConnect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</a>
+    </nav>
+
+    <div class="container" style="max-width:450px; margin-top:6vh;">
+        <div class="card" style="padding:2rem;">
+            <h2 class="text-center mb-3" style="color:var(--dark-green);" data-i18n="welcome_login">Login with Phone Number</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label data-i18n="phone">Phone Number</label>
+                    <input type="tel" id="phone" required pattern="[0-9]{10}" data-i18n="phone_placeholder">
+                </div>
+                <div class="form-group">
+                    <label data-i18n="select_role">Select Your Role</label>
+                    <select id="role" required>
+                        <option value="" data-i18n="choose_role">-- Choose your role --</option>
+                        <option value="Farmer" data-i18n="role_farmer">Farmer (Sell produce)</option>
+                        <option value="Buyer" data-i18n="role_buyer">Buyer (Buy produce)</option>
+                        <option value="Transporter" data-i18n="role_transporter">Transporter (Deliveries)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="font-size:1.1rem; padding:0.9rem;" data-i18n="login_btn">Login / Signup</button>
+            </form>
+            <p class="text-center mt-2" style="font-size:0.85rem; color:#888;" data-i18n="proto_note">Prototype Mode: OTP is simulated automatically</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            DB.translateUI();
+            const user = DB.getUserSession();
+            if (user) {
+                if (user.role === 'Farmer') window.location.href = 'farmer.html';
+                if (user.role === 'Buyer') window.location.href = 'buyer.html';
+                if (user.role === 'Transporter') window.location.href = 'transporter.html';
+            }
+            document.getElementById('loginForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const phone = document.getElementById('phone').value;
+                const role = document.getElementById('role').value;
+                DB.setUserSession(role, phone);
+                if (role === 'Farmer') window.location.href = 'farmer.html';
+                if (role === 'Buyer') window.location.href = 'buyer.html';
+                if (role === 'Transporter') window.location.href = 'transporter.html';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Tracking - FarmConnect</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="index.html" class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</a>
+        <div class="nav-links" id="auth-nav"></div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <h2 data-i18n="order_tracking">Order Tracking</h2>
+        </div>
+
+        <div style="max-width:800px; margin:0 auto;">
+            <h3 class="mb-2" data-i18n="your_orders">Your Orders</h3>
+            <div id="ordersContainer"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = checkAuth();
+            if (!user) return;
+
+            function render() {
+                const orders = DB.getOrders();
+                let myOrders = [];
+                if (user.role === 'Buyer') myOrders = orders.filter(o => o.buyerPhone === user.phone);
+                else if (user.role === 'Farmer') myOrders = orders.filter(o => o.farmerPhone === user.phone);
+                else myOrders = orders;
+
+                const el = document.getElementById('ordersContainer');
+                if (myOrders.length === 0) {
+                    el.innerHTML = `<p style="color:#999;" data-i18n="no_active_orders">${DB.t('no_active_orders')}</p>`;
+                    DB.translateUI();
+                    return;
+                }
+
+                el.innerHTML = myOrders.reverse().map(o => {
+                    let statusSteps = ['Pending', 'Assigned', 'In Transit', 'Delivered'];
+                    let activeIdx = statusSteps.indexOf(o.status);
+                    let statusLabels = [DB.t('status_pending'), DB.t('status_assigned'), DB.t('status_transit'), DB.t('status_delivered')];
+
+                    return `<div class="card mb-2" style="padding:1.5rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
+                            <div>
+                                <h4>${DB.t('order_id')} #${o.id}</h4>
+                                <p>${o.cropName} – ${o.qty}</p>
+                                <p style="font-size:.85rem;color:#666;">
+                                    ${DB.t('farmer_label')}: +91 ${o.farmerPhone} (${o.farmerLoc})<br>
+                                    ${DB.t('buyer_label')}: +91 ${o.buyerPhone}
+                                </p>
+                            </div>
+                            <div style="display:flex;gap:.5rem;">
+                                <button class="btn btn-sm btn-outline" onclick="showMapPopup(${o.farmerLat||0},${o.farmerLng||0},'${o.farmerLoc}')" data-i18n="view_map">${DB.t('view_map')}</button>
+                                <button class="call-btn" style="width:30px;height:30px;font-size:.8rem;" onclick="simulateCall('${o.farmerPhone}')">📞</button>
+                            </div>
+                        </div>
+                        <div class="timeline" style="margin:1.5rem 0;">
+                            ${statusSteps.map((s, i) => `
+                                <div class="timeline-step ${i <= activeIdx ? 'active' : ''}">
+                                    <div class="timeline-point"></div>
+                                    <p>${statusLabels[i]}</p>
+                                </div>`).join('')}
+                        </div>
+                        ${o.status === 'Pending' && user.role === 'Buyer' ? `<div class="text-center"><button class="btn btn-secondary btn-sm" onclick="autoAssign(${o.id})" data-i18n="auto_assign">${DB.t('auto_assign')}</button></div>` : ''}
+                        ${o.status === 'Assigned' ? `<p class="text-center" style="color:var(--primary-green);font-weight:bold;">✅ ${DB.t('transporter_assigned')}</p>` : ''}
+                    </div>`;
+                }).join('');
+                DB.translateUI();
+            }
+
+            window.autoAssign = function (id) {
+                DB.updateOrderStatus(id, 'Assigned');
+                render();
+                // Toast
+                const t = document.createElement('div');
+                t.className = 'toast';
+                t.textContent = DB.t('transporter_assigned');
+                document.body.appendChild(t);
+                setTimeout(() => t.remove(), 3000);
+            };
+
+            render();
+            // Poll for updates every 3 seconds
+            setInterval(render, 3000);
+        });
+    </script>
+</body>
+</html>

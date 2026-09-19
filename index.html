@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmConnect - Direct Farm to Customer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand" data-i18n="nav_brand">🌱 FarmConnect</div>
+        <div class="nav-links" id="auth-nav"></div>
+    </nav>
+
+    <div class="container text-center" style="margin-top:8vh;">
+        <h1 style="font-size:2.8rem; color:var(--dark-green);" data-i18n="tagline">Empowering Farmers Through Direct Access</h1>
+        <p style="font-size:1.15rem; color:#555; max-width:650px; margin:1rem auto 2rem;" data-i18n="sub_tagline">
+            Connect directly with verified farmers. No middlemen, fair prices, and fresh produce delivered to your door with automated logistics.
+        </p>
+
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-top:3rem;">
+            <div class="card" style="padding:1.5rem;">
+                <h3 style="color:var(--primary-green);" data-i18n="for_farmers">🚜 For Farmers</h3>
+                <p data-i18n="for_farmers_desc">List your crops in minutes and sell directly for better profits.</p>
+            </div>
+            <div class="card" style="padding:1.5rem;">
+                <h3 style="color:var(--earth-brown);" data-i18n="for_buyers">🛒 For Buyers</h3>
+                <p data-i18n="for_buyers_desc">Access fresh produce instantly with transparent smart pricing.</p>
+            </div>
+            <div class="card" style="padding:1.5rem;">
+                <h3 style="color:var(--dark-green);" data-i18n="for_transporters">🚚 For Transporters</h3>
+                <p data-i18n="for_transporters_desc">Get nearby pickup alerts automatically and track deliveries.</p>
+            </div>
+        </div>
+
+        <div style="margin-top:3rem;">
+            <a href="login.html" class="btn btn-primary" style="font-size:1.15rem; padding:1rem 2.5rem;" data-i18n="get_started">Get Started Today</a>
+        </div>
+        <div class="mt-2">
+            <a href="language.html" style="color:var(--primary-green); text-decoration:underline;" data-i18n="change_lang">Change Language</a>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => checkAuth());</script>
+</body>
+</html>
