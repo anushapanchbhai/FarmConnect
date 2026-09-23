@@ -1,4 +1,4 @@
-# FarmConnect - farmer AND customer communication
+# FarmConnect 
 FarmConnect is a direct farm-to-customer marketplace that connects farmers, buyers, and transporters. It helps farmers list crops and sell at fair prices, lets buyers access fresh produce with transparent pricing, and supports delivery coordination with pickup alerts and tracking
 # Features
 
